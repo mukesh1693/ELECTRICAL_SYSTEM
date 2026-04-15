@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>MEP Pro - Integrated APFC & Load Simulator</title>
+    <title>kW vs kVA vs kVAR - Power Dynamics</title>
     <style>
         :root {
             --bg: #0f172a; --panel: #1e293b; --kw: #10b981; --kvar: #f59e0b; --kva: #3b82f6; --danger: #ef4444; --led-off: #334155;
@@ -10,116 +10,101 @@
         body { background: var(--bg); color: white; font-family: 'Segoe UI', sans-serif; padding: 20px; display: flex; justify-content: center; }
         .wrapper { max-width: 1200px; width: 100%; background: var(--panel); padding: 25px; border-radius: 12px; border: 1px solid #475569; }
         
-        /* Grid Layout */
         .main-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 15px; margin-bottom: 20px; }
-        .panel { background: #0f172a; padding: 15px; border-radius: 10px; border: 1px solid #334155; height: 350px; position: relative; }
+        .panel { background: #0f172a; padding: 15px; border-radius: 10px; border: 1px solid #334155; height: 350px; position: relative; overflow: hidden;}
         .label { font-size: 10px; font-weight: bold; color: #94a3b8; text-transform: uppercase; margin-bottom: 10px; display: block; letter-spacing: 1px; }
         
-        /* APFC Panel Styling */
-        .apfc-bay { display: flex; flex-direction: column; gap: 10px; }
-        .cap-stage { 
-            display: flex; align-items: center; justify-content: space-between; 
-            background: #1e293b; padding: 8px 12px; border-radius: 6px; border: 1px solid #334155;
-        }
-        .led { width: 12px; height: 12px; border-radius: 50%; background: var(--led-off); box-shadow: 0 0 0px transparent; transition: 0.3s; }
-        .led.active { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
+        .apfc-bay { display: flex; flex-direction: column; gap: 8px; }
+        .cap-stage { display: flex; align-items: center; justify-content: space-between; background: #1e293b; padding: 6px 10px; border-radius: 6px; border: 1px solid #334155; font-size: 13px;}
+        .led { width: 10px; height: 10px; border-radius: 50%; background: var(--led-off); transition: 0.3s; }
+        .led.active { background: #22c55e; box-shadow: 0 0 8px #22c55e; }
         
-        /* Controls */
         .controls { background: #0f172a; padding: 20px; border-radius: 10px; border: 1px solid #334155; margin-bottom: 15px; }
         input[type=range] { width: 100%; accent-color: var(--kva); cursor: pointer; }
         
         .stat-bar { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 15px; }
         .stat-card { background: #0f172a; padding: 10px; border-radius: 6px; text-align: center; border-bottom: 3px solid #334155; }
         
-        /* Comments Box */
-        .insight-box {
-            margin-top: 10px; padding: 20px; border-radius: 10px; background: #0f172a; 
-            border-left: 6px solid var(--kva); border: 1px solid #334155; display: flex; align-items: center; gap: 20px;
-        }
-        .insight-icon { font-size: 32px; }
-        .insight-title { font-weight: bold; text-transform: uppercase; font-size: 14px; margin-bottom: 4px; color: var(--kva); }
-        .insight-text { color: #cbd5e1; font-size: 14px; line-height: 1.5; }
-
-        @keyframes bubble { 0% {transform: translateY(0); opacity:0;} 50% {opacity:1;} 100% {transform: translateY(-30px); opacity:0;} }
+        .insight-box { margin-top: 10px; padding: 15px; border-radius: 10px; background: #0f172a; border-left: 6px solid var(--kva); border: 1px solid #334155; display: flex; align-items: center; gap: 20px; }
     </style>
 </head>
 <body>
 
 <div class="wrapper">
-    <h2 style="text-align:center; margin:0 0 20px 0; color:var(--kva)">MEP COMMAND CENTER: LOAD & APFC DYNAMICS</h2>
+    <h2 style="text-align:center; margin:0 0 20px 0; color:var(--kva); letter-spacing: 1px;">KVA VS KVAR VS KW: POWER VECTOR ANALYSIS</h2>
 
     <div class="stat-bar">
-        <div class="stat-card" style="border-color: var(--kw);"><small>Load kW</small><br><strong id="res-kw">100</strong></div>
-        <div class="stat-card" style="border-color: var(--kva);"><small>Net kVA</small><br><strong id="res-kva">125.0</strong></div>
-        <div class="stat-card" style="border-color: var(--kvar);"><small>Net kVAR</small><br><strong id="res-kvar">75.0</strong></div>
-        <div class="stat-card" id="card-pf-box" style="border-color: white;"><small>Net PF</small><br><strong id="res-pf">0.80</strong></div>
+        <div class="stat-card" style="border-color: var(--kw);"><small>Real Power (kW)</small><br><strong id="res-kw">100</strong></div>
+        <div class="stat-card" style="border-color: var(--kva);"><small>Apparent (kVA)</small><br><strong id="res-kva">125.0</strong></div>
+        <div class="stat-card" style="border-color: var(--kvar);"><small>Reactive (kVAR)</small><br><strong id="res-kvar">75.0</strong></div>
+        <div class="stat-card" id="card-pf-box" style="border-color: white;"><small>Current PF</small><br><strong id="res-pf">0.80</strong></div>
     </div>
 
     <div class="main-grid">
         <div class="panel">
-            <span class="label">APFC Relay Panel</span>
+            <span class="label">Capacitor Bank Control</span>
             <div class="apfc-bay">
-                <div class="cap-stage"><span>Stage 1 (25 kVAR)</span><div id="led-1" class="led"></div></div>
-                <div class="cap-stage"><span>Stage 2 (25 kVAR)</span><div id="led-2" class="led"></div></div>
-                <div class="cap-stage"><span>Stage 3 (25 kVAR)</span><div id="led-3" class="led"></div></div>
-                <div class="cap-stage" style="border:none; background:transparent; padding:0; margin-top:10px;">
-                    <button id="auto-apfc" style="width:100%; padding:10px; background:var(--kva); border:none; color:white; border-radius:5px; cursor:pointer; font-weight:bold;">AUTO-CORRECT ON</button>
-                </div>
-                <p style="font-size:10px; color:#94a3b8; margin-top:10px;">Note: Manual override simulates capacitor bank switching to neutralize lagging reactive power.</p>
+                <div class="cap-stage"><span>Stage 1 (25kVAR)</span><div id="led-1" class="led"></div></div>
+                <div class="cap-stage"><span>Stage 2 (25kVAR)</span><div id="led-2" class="led"></div></div>
+                <div class="cap-stage"><span>Stage 3 (25kVAR)</span><div id="led-3" class="led"></div></div>
+                <button id="auto-apfc" style="width:100%; padding:10px; background:var(--kva); border:none; color:white; border-radius:5px; cursor:pointer; font-weight:bold; margin-top:5px;">AUTO-CORRECT OFF</button>
             </div>
+            <p style="font-size: 10px; color: #64748b; margin-top: 15px;">Correcting the phase angle reduces kVA demand on the transformer.</p>
         </div>
 
         <div class="panel">
-            <span class="label">Vector Triangle (Dynamic)</span>
-            <svg viewBox="0 0 250 350" style="width:100%; height:90%;">
-                <line x1="40" y1="300" x2="160" y2="300" stroke="var(--kw)" stroke-width="5"/>
-                <text x="100" y="320" fill="var(--kw)" font-size="11" font-weight="bold" text-anchor="middle">100 kW</text>
+            <span class="label">Vector Triangle</span>
+            <svg viewBox="0 0 250 350" style="width:100%; height:95%;">
+                <line x1="50" y1="300" x2="170" y2="300" stroke="var(--kw)" stroke-width="6"/>
+                <text x="110" y="320" fill="var(--kw)" font-size="12" font-weight="bold" text-anchor="middle">100 kW</text>
 
-                <line id="tri-kvar-line" x1="160" y1="300" x2="160" y2="150" stroke="var(--kvar)" stroke-width="5"/>
-                <text id="tri-kvar-val" x="170" y="225" fill="var(--kvar)" font-size="14" font-weight="bold">75 kVAR</text>
+                <line id="tri-kvar-line" x1="170" y1="300" x2="170" y2="150" stroke="var(--kvar)" stroke-width="6"/>
+                <text id="tri-kvar-val" x="180" y="225" fill="var(--kvar)" font-size="13" font-weight="bold">75 kVAR</text>
 
-                <line id="tri-kva-line" x1="40" y1="300" x2="160" y2="150" stroke="var(--kva)" stroke-width="5"/>
-                <text id="tri-kva-val" x="70" y="220" fill="var(--kva)" font-size="16" font-weight="bold">125 kVA</text>
+                <line id="tri-kva-line" x1="50" y1="300" x2="170" y2="150" stroke="var(--kva)" stroke-width="6"/>
+                <text id="tri-kva-val" x="100" y="210" fill="var(--kva)" font-size="14" font-weight="bold" text-anchor="middle">125 kVA</text>
                 
-                <text id="tri-phi" x="75" y="290" fill="white" font-size="11">36°</text>
+                <path id="phi-arc" d="" fill="none" stroke="white" stroke-width="2"/>
+                <text id="tri-phi" x="0" y="0" fill="white" font-size="12" font-weight="bold">36°</text>
             </svg>
         </div>
 
         <div class="panel">
-            <span class="label">Utilization Reading</span>
+            <span class="label">Efficiency Analogy</span>
             <svg viewBox="0 0 120 300" style="width:100%; height:90%;">
-                <path d="M 30 50 L 30 250 A 5 5 0 0 0 35 255 L 85 255 A 5 5 0 0 0 90 250 L 90 50" fill="none" stroke="#64748b" stroke-width="3"/>
+                <path d="M 30 50 L 30 250 A 5 5 0 0 0 35 255 L 85 255 A 5 5 0 0 0 90 250 L 90 50" fill="none" stroke="#64748b" stroke-width="4"/>
                 <rect x="34" y="160" width="52" height="90" fill="#eab308"/>
-                <text x="60" y="210" fill="white" font-size="9" font-weight="bold" text-anchor="middle">USEFUL kW</text>
-
+                <text x="60" y="200" fill="#000" font-size="10" font-weight="bold" text-anchor="middle">USEFUL kW</text>
                 <rect id="mug-foam" x="34" y="100" width="52" height="60" fill="#f1f5f9"/>
                 <text id="mug-kvar-val" x="60" y="130" fill="#475569" font-size="11" font-weight="bold" text-anchor="middle">75 kVAR</text>
             </svg>
         </div>
 
         <div class="panel">
-            <span class="label">Phase Angle (V vs I)</span>
+            <span class="label">Phasor Waveform</span>
             <svg viewBox="0 0 200 200" style="width:100%; height:90%;">
+                <text x="10" y="20" fill="white" font-size="9">V (Ref)</text>
+                <text x="10" y="35" fill="var(--kva)" font-size="9">I (Current)</text>
                 <line x1="0" y1="100" x2="200" y2="100" stroke="#334155" stroke-dasharray="2"/>
-                <path d="M 0 100 Q 25 20, 50 100 T 100 100 T 150 100 T 200 100" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1"/>
-                <path id="wave-i" d="M 0 100 Q 25 20, 50 100 T 100 100 T 150 100 T 200 100" fill="none" stroke="var(--kva)" stroke-width="2"/>
+                <path d="M 0 100 Q 25 20, 50 100 T 100 100 T 150 100 T 200 100" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5"/>
+                <path id="wave-i" d="M 0 100 Q 25 20, 50 100 T 100 100 T 150 100 T 200 100" fill="none" stroke="var(--kva)" stroke-width="2.5"/>
             </svg>
         </div>
     </div>
 
     <div class="controls">
         <div style="display:flex; justify-content:space-between; margin-bottom:10px;">
-            <span style="font-size:12px; font-weight:bold; color:#94a3b8;">ADJUST INDUCTIVE LOAD PF (LAGGING)</span>
+            <span style="font-size:12px; font-weight:bold; color:#94a3b8;">ADJUST LOAD POWER FACTOR (LAGGING)</span>
             <span id="pf-slider-val" style="font-weight:bold; color:var(--kva);">0.80</span>
         </div>
         <input type="range" id="pf-slider" min="0.50" max="1.0" step="0.01" value="0.80">
     </div>
 
     <div id="comment-box" class="insight-box">
-        <div id="insight-icon" class="insight-icon">⚠️</div>
+        <div id="insight-icon" style="font-size:24px;">ℹ️</div>
         <div>
-            <div id="insight-title" class="insight-title">System Assessment</div>
-            <div id="insight-text" class="insight-text">Loading analysis...</div>
+            <div id="insight-title" style="font-weight:bold; color:var(--kva); font-size:13px;">ENGINEERING INSIGHT</div>
+            <div id="insight-text" style="font-size:14px; color:#cbd5e1;">Move slider to simulate inductive load changes.</div>
         </div>
     </div>
 </div>
@@ -131,16 +116,20 @@
 
     autoBtn.onclick = () => {
         autoMode = !autoMode;
-        autoBtn.innerText = autoMode ? "AUTO-CORRECT ON" : "AUTO-CORRECT OFF";
+        autoBtn.textContent = autoMode ? "AUTO-CORRECT ON" : "AUTO-CORRECT OFF";
         autoBtn.style.background = autoMode ? "#22c55e" : "#64748b";
         update();
     };
 
     function update() {
+        // 1. INPUTS
         const loadPf = parseFloat(slider.value);
         const kW = 100;
+        
+        // Calculate original Reactive Power before APFC
         const loadKvar = kW * Math.tan(Math.acos(loadPf));
         
+        // 2. APFC LOGIC
         let capKvar = 0;
         if (autoMode) {
             if (loadKvar > 20) capKvar += 25;
@@ -152,61 +141,87 @@
         document.getElementById('led-2').className = (capKvar >= 50) ? 'led active' : 'led';
         document.getElementById('led-3').className = (capKvar >= 75) ? 'led active' : 'led';
 
+        // 3. NET CALCULATIONS
         const netKvar = Math.max(0, loadKvar - capKvar);
         const netKva = Math.sqrt(Math.pow(kW, 2) + Math.pow(netKvar, 2));
-        const netPf = kW / netKva;
+        let netPf = kW / netKva;
+        if(netPf > 1) netPf = 1;
+
         const rad = Math.acos(netPf);
         const deg = rad * (180 / Math.PI);
 
-        document.getElementById('pf-slider-val').innerText = loadPf.toFixed(2);
-        document.getElementById('res-kva').innerText = netKva.toFixed(1) + " kVA";
-        document.getElementById('res-kvar').innerText = netKvar.toFixed(1) + " kVAR";
-        document.getElementById('res-pf').innerText = netPf.toFixed(2);
-        
-        // --- DYNAMIC COMMENTS LOGIC ---
-        const box = document.getElementById('comment-box');
-        const icon = document.getElementById('insight-icon');
-        const title = document.getElementById('insight-title');
-        const text = document.getElementById('insight-text');
+        // Update Text Stats
+        document.getElementById('pf-slider-val').textContent = loadPf.toFixed(2);
+        document.getElementById('res-kva').textContent = netKva.toFixed(1);
+        document.getElementById('res-kvar').textContent = netKvar.toFixed(1);
+        document.getElementById('res-pf').textContent = netPf.toFixed(2);
 
-        if (netPf >= 0.98) {
-            box.style.borderLeftColor = "var(--kw)";
-            icon.innerText = "✅";
-            title.innerText = "Optimum Efficiency";
-            text.innerText = "System is perfectly compensated. Minimum line current, reduced transformer heat, and zero utility penalties. Ideal for high-rise commercial projects.";
-        } else if (netPf >= 0.90) {
-            box.style.borderLeftColor = "var(--kva)";
-            icon.innerText = "ℹ️";
-            title.innerText = "Operational Standard";
-            text.innerText = "Within acceptable limits. APFC stages are maintaining compliance. Minor I²R losses present but not critical for most site distribution boards.";
-        } else if (netPf >= 0.85) {
-            box.style.borderLeftColor = "var(--kvar)";
-            icon.innerText = "⚠️";
-            title.innerText = "Efficiency Warning";
-            text.innerText = "Poor PF detected. High reactive current is eating up transformer headroom. Potential surcharges from DISCOM likely if maintained.";
-        } else {
-            box.style.borderLeftColor = "var(--danger)";
-            icon.innerText = "🚫";
-            title.innerText = "Critical Penalty Zone";
-            text.innerText = "Immediate APFC attention required! Heavy reactive waste causing cable overheating and significant kVA demand penalties. System reliability is at risk.";
-        }
-
-        // SVG Visuals update
+        // 4. SVG TRIANGLE DYNAMICS
         const scale = 1.8;
         const h = netKvar * scale;
         const topY = 300 - h;
+        const baseLen = 120; 
+        const visualRad = Math.atan2(h, baseLen);
+        const visualDeg = visualRad * (180 / Math.PI);
+        
         document.getElementById('tri-kvar-line').setAttribute('y2', topY);
-        document.getElementById('tri-kvar-val').textContent = Math.round(netKvar) + " kVAR";
-        document.getElementById('tri-kvar-val').setAttribute('y', topY + (h/2) + 5);
+        const tkvar = document.getElementById('tri-kvar-val');
+        tkvar.textContent = Math.round(netKvar) + " kVAR";
+        tkvar.setAttribute('y', topY + (h/2) + 5);
+
         document.getElementById('tri-kva-line').setAttribute('y2', topY);
-        document.getElementById('tri-kva-val').textContent = Math.round(netKva) + " kVA";
-        document.getElementById('tri-kva-val').setAttribute('transform', `rotate(${-deg}, 100, ${topY + (h/2)})`);
-        document.getElementById('tri-phi').innerText = Math.round(deg) + "°";
-        const foamH = netKvar * 1.1;
-        document.getElementById('mug-foam').setAttribute('height', foamH);
-        document.getElementById('mug-foam').setAttribute('y', 160 - foamH);
-        document.getElementById('mug-kvar-val').textContent = Math.round(netKvar) + " kVAR";
-        document.getElementById('wave-i').setAttribute('transform', `translate(${(deg/90)*40}, 0)`);
+        const tkva = document.getElementById('tri-kva-val');
+        tkva.textContent = Math.round(netKva) + " kVA";
+        const midX = 50 + (baseLen / 2);
+        const midY = 300 - (h / 2);
+        tkva.setAttribute('x', midX);
+        tkva.setAttribute('y', midY - 10);
+        tkva.setAttribute('transform', `rotate(${-visualDeg}, ${midX}, ${midY})`);
+
+        // 5. ARC & ANGLE TEXT
+        const R = 35;
+        const arcStartX = 50 + R;
+        const arcStartY = 300;
+        const arcEndX = 50 + R * Math.cos(visualRad);
+        const arcEndY = 300 - R * Math.sin(visualRad);
+        const arcElement = document.getElementById('phi-arc');
+        
+        if (visualDeg > 1) { 
+            arcElement.setAttribute('d', `M ${arcStartX} ${arcStartY} A ${R} ${R} 0 0 0 ${arcEndX} ${arcEndY}`);
+            arcElement.style.display = "block";
+        } else {
+            arcElement.style.display = "none";
+        }
+
+        const phiText = document.getElementById('tri-phi');
+        phiText.textContent = Math.round(deg) + "°";
+        phiText.setAttribute('x', 55 + R);
+        phiText.setAttribute('y', 305 - (R * Math.sin(visualRad) / 2));
+        phiText.style.display = (visualDeg < 3) ? "none" : "block";
+
+        // 6. MUG DYNAMICS (FIXED)
+        const foamH = Math.max(2, netKvar * 0.8); // Foam height relative to kVAR
+        const mugFoam = document.getElementById('mug-foam');
+        const mugKvarText = document.getElementById('mug-kvar-val');
+        
+        mugFoam.setAttribute('height', foamH);
+        mugFoam.setAttribute('y', 160 - foamH);
+        mugKvarText.textContent = Math.round(netKvar) + " kVAR";
+        mugKvarText.setAttribute('y', 160 - (foamH / 2) + 4);
+        
+        // Hide kVAR text in mug if foam is too small
+        mugKvarText.style.opacity = (foamH < 15) ? "0" : "1";
+
+        // 7. WAVEFORM SHIFT
+        // Shift current wave by the phase angle (90 deg = 50px shift in this viewBox)
+        const waveShift = (deg / 90) * 50;
+        document.getElementById('wave-i').setAttribute('transform', `translate(${waveShift}, 0)`);
+
+        // 8. INSIGHT TEXT
+        const insight = document.getElementById('insight-text');
+        if (netPf > 0.97) insight.textContent = "Optimal System. Transformer is now primarily delivering useful kW with negligible reactive waste.";
+        else if (netPf > 0.85) insight.textContent = "Standard Operation. Some kVA capacity is wasted as heat and magnetism, but within common limits.";
+        else insight.textContent = "Critical Inefficiency. High kVAR causes current surges, leading to cable heating and utility penalties.";
     }
 
     slider.oninput = update;
